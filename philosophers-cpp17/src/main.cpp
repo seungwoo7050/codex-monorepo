@@ -6,15 +6,18 @@
 /**
  * [모듈] philosophers-cpp17/src/main.cpp
  * 설명:
- *   - v0.1.0 기준으로 교착 상태 데모용 시뮬레이션을 실행한다.
+ *   - v0.2.0 기준으로 교착 상태 데모 및 회피 전략을 실행한다.
  *   - CLI 인자를 받아 기본 설정을 조정하고, 실행 결과를 표준 출력에 남긴다.
- * 버전: v0.1.0
+ * 버전: v0.2.0
  * 관련 설계문서:
- *   - design/philosophers-cpp17/v0.1.0-naive-deadlock.md
+ *   - design/philosophers-cpp17/v0.2.0-deadlock-free-strategies.md
  * 변경 이력:
  *   - v0.1.0: 초기 메인 엔트리 추가
+ *   - v0.2.0: 전략 선택 옵션 추가 및 주석 업데이트
  * 테스트:
  *   - tests/deadlock_demo.sh
+ *   - tests/ordered_strategy.sh
+ *   - tests/waiter_strategy.sh
  */
 int main(int argc, char** argv) {
   try {

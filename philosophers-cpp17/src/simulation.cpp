@@ -1,20 +1,24 @@
 #include "simulation.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 
 /**
  * [모듈] philosophers-cpp17/src/simulation.cpp
  * 설명:
- *   - 철학자 스레드와 모니터 스레드를 관리하며 기본적인 교착 상태 데모를 실행한다.
- *   - 포크를 좌측→우측 순서로 집는 단순한 전략을 사용해 교착 징후를 노출한다.
- * 버전: v0.1.0
+ *   - 철학자 스레드와 모니터 스레드를 관리하며 교착 상태 데모와 회피 전략을 실행한다.
+ *   - naive/ordered/waiter 전략을 선택적으로 수행하며 상태 로그와 통계를 수집한다.
+ * 버전: v0.2.0
  * 관련 설계문서:
- *   - design/philosophers-cpp17/v0.1.0-naive-deadlock.md
+ *   - design/philosophers-cpp17/v0.2.0-deadlock-free-strategies.md
  * 변경 이력:
  *   - v0.1.0: 초기 교착 상태 데모 구현
+ *   - v0.2.0: 전략 선택, 토큰 기반 웨이터, 요약 로그 추가
  * 테스트:
  *   - tests/deadlock_demo.sh
+ *   - tests/ordered_strategy.sh
+ *   - tests/waiter_strategy.sh
  */
 DiningSimulation::DiningSimulation(const SimulationConfig& config)
     : config_(config),
@@ -24,7 +28,9 @@ DiningSimulation::DiningSimulation(const SimulationConfig& config)
       stop_requested_(false),
       deadlock_noted_(false),
       last_progress_ms_(0),
-      ready_count_(0) {
+      ready_count_(0),
+      waiter_permits_(config.philosopher_count > 1 ? config.philosopher_count - 1
+                                                   : 0) {
   const std::int64_t now = nowMs();
   for (std::size_t i = 0; i < config_.philosopher_count; ++i) {
     meals_[i] = 0;
@@ -41,6 +47,16 @@ void DiningSimulation::logState(std::size_t id, const std::string& message) {
 void DiningSimulation::logNotice(const std::string& message) {
   std::lock_guard<std::mutex> lock(log_mutex_);
   std::cout << "[안내] " << message << std::endl;
+}
+
+void DiningSimulation::logSummary() {
+  std::lock_guard<std::mutex> lock(log_mutex_);
+  std::cout << "[요약] 전략=" << strategyName()
+            << " | 철학자별 식사 횟수" << std::endl;
+  for (std::size_t i = 0; i < meals_.size(); ++i) {
+    std::cout << "  - 철학자 " << i << ": 식사 횟수=" << meals_[i].load()
+              << std::endl;
+  }
 }
 
 std::int64_t DiningSimulation::nowMs() const {
@@ -79,16 +95,9 @@ void DiningSimulation::philosopherLoop(std::size_t id) {
     logState(id, "생각 중");
     std::this_thread::sleep_for(config_.think_time);
 
-    logState(id, "배고픔 → 왼쪽 포크 집기 시도");
-    std::unique_lock<std::timed_mutex> left_lock(forks_[left]);
-    logState(id, "왼쪽 포크 확보, 오른쪽 포크 대기 중");
-    std::this_thread::sleep_for(config_.lock_timeout / 2);
-
-    std::unique_lock<std::timed_mutex> right_lock(forks_[right],
-                                                  std::defer_lock);
-    if (!right_lock.try_lock_for(config_.lock_timeout)) {
-      logState(id, "오른쪽 포크 대기 타임아웃 → 다시 시도 예정");
-      left_lock.unlock();
+    std::unique_lock<std::timed_mutex> first_lock;
+    std::unique_lock<std::timed_mutex> second_lock;
+    if (!acquireForks(id, first_lock, second_lock)) {
       continue;
     }
 
@@ -96,6 +105,10 @@ void DiningSimulation::philosopherLoop(std::size_t id) {
     updateProgress(id);
     std::this_thread::sleep_for(config_.eat_time);
     logState(id, "식사 종료, 포크 반환");
+
+    if (config_.strategy == StrategyType::kWaiter) {
+      waiterLeave();
+    }
   }
 }
 
@@ -113,6 +126,7 @@ void DiningSimulation::monitorLoop() {
     }
     if (runtime_ms > 0 && (now - start_ms) >= runtime_ms) {
       stop_requested_ = true;
+      waiter_cv_.notify_all();
     }
   }
 }
@@ -141,8 +155,115 @@ int DiningSimulation::run() {
   if (deadlock_noted_.load()) {
     logNotice("교착 징후를 확인했으니 잠시 후 종료합니다.");
   }
+  logSummary();
   logNotice("시뮬레이션 종료.");
   return EXIT_SUCCESS;
+}
+
+bool DiningSimulation::acquireForks(
+    std::size_t id,
+    std::unique_lock<std::timed_mutex>& first_lock,
+    std::unique_lock<std::timed_mutex>& second_lock) {
+  const std::size_t left = id;
+  const std::size_t right = (id + 1) % config_.philosopher_count;
+
+  if (config_.strategy == StrategyType::kNaive) {
+    logState(id, "배고픔 → 왼쪽 포크 집기 시도");
+    return acquireNaive(left, right, first_lock, second_lock);
+  }
+
+  if (config_.strategy == StrategyType::kOrdered) {
+    logState(id, "낮은 번호 포크부터 확보 시도");
+    return acquireOrdered(left, right, first_lock, second_lock);
+  }
+
+  logState(id, "웨이터 승인 요청 → 포크 확보 시도");
+  return acquireWaiter(left, right, first_lock, second_lock);
+}
+
+bool DiningSimulation::acquireNaive(
+    std::size_t left,
+    std::size_t right,
+    std::unique_lock<std::timed_mutex>& left_lock,
+    std::unique_lock<std::timed_mutex>& right_lock) {
+  left_lock = std::unique_lock<std::timed_mutex>(forks_[left]);
+  logState(left, "왼쪽 포크 확보, 오른쪽 포크 대기 중");
+  std::this_thread::sleep_for(config_.lock_timeout / 2);
+
+  right_lock =
+      std::unique_lock<std::timed_mutex>(forks_[right], std::defer_lock);
+  if (!right_lock.try_lock_for(config_.lock_timeout)) {
+    logState(left, "오른쪽 포크 대기 타임아웃 → 다시 시도 예정");
+    left_lock.unlock();
+    return false;
+  }
+  return true;
+}
+
+bool DiningSimulation::acquireOrdered(
+    std::size_t left,
+    std::size_t right,
+    std::unique_lock<std::timed_mutex>& first_lock,
+    std::unique_lock<std::timed_mutex>& second_lock) {
+  const std::size_t first = std::min(left, right);
+  const std::size_t second = std::max(left, right);
+  first_lock = std::unique_lock<std::timed_mutex>(forks_[first]);
+  second_lock = std::unique_lock<std::timed_mutex>(forks_[second],
+                                                   std::defer_lock);
+  if (!second_lock.try_lock_for(config_.lock_timeout)) {
+    logNotice("순차 잠금 실패: 대기 시간 초과");
+    first_lock.unlock();
+    return false;
+  }
+  return true;
+}
+
+bool DiningSimulation::acquireWaiter(
+    std::size_t left,
+    std::size_t right,
+    std::unique_lock<std::timed_mutex>& first_lock,
+    std::unique_lock<std::timed_mutex>& second_lock) {
+  if (!waiterEnter()) {
+    return false;
+  }
+
+  if (!acquireOrdered(left, right, first_lock, second_lock)) {
+    waiterLeave();
+    return false;
+  }
+  return true;
+}
+
+bool DiningSimulation::waiterEnter() {
+  std::unique_lock<std::mutex> lock(waiter_mutex_);
+  waiter_cv_.wait(lock, [this]() {
+    return stop_requested_.load() || waiter_permits_ > 0;
+  });
+  if (stop_requested_.load()) {
+    return false;
+  }
+  --waiter_permits_;
+  return true;
+}
+
+void DiningSimulation::waiterLeave() {
+  {
+    std::lock_guard<std::mutex> lock(waiter_mutex_);
+    ++waiter_permits_;
+  }
+  waiter_cv_.notify_one();
+}
+
+std::string DiningSimulation::strategyName() const {
+  switch (config_.strategy) {
+    case StrategyType::kNaive:
+      return "naive";
+    case StrategyType::kOrdered:
+      return "ordered";
+    case StrategyType::kWaiter:
+      return "waiter";
+  }
+  return "unknown";
 }
 
 /**
@@ -156,9 +277,11 @@ int DiningSimulation::run() {
  * 에러:
  *   - 잘못된 숫자 값이 들어오면 std::invalid_argument를 던진다.
  * 관련 설계문서:
- *   - design/philosophers-cpp17/v0.1.0-naive-deadlock.md
+ *   - design/philosophers-cpp17/v0.2.0-deadlock-free-strategies.md
  * 관련 테스트:
  *   - tests/deadlock_demo.sh
+ *   - tests/ordered_strategy.sh
+ *   - tests/waiter_strategy.sh
  */
 SimulationConfig parseArguments(int argc, char** argv) {
   SimulationConfig config;
@@ -168,6 +291,7 @@ SimulationConfig parseArguments(int argc, char** argv) {
   config.lock_timeout = std::chrono::milliseconds(800);
   config.stuck_threshold = std::chrono::milliseconds(700);
   config.runtime = std::chrono::milliseconds(3000);
+  config.strategy = StrategyType::kNaive;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg(argv[i]);
@@ -186,6 +310,17 @@ SimulationConfig parseArguments(int argc, char** argv) {
       config.stuck_threshold = parseMs(argv[++i]);
     } else if (arg == "--duration-ms" && i + 1 < argc) {
       config.runtime = parseMs(argv[++i]);
+    } else if (arg == "--strategy" && i + 1 < argc) {
+      std::string strategy(argv[++i]);
+      if (strategy == "naive") {
+        config.strategy = StrategyType::kNaive;
+      } else if (strategy == "ordered") {
+        config.strategy = StrategyType::kOrdered;
+      } else if (strategy == "waiter") {
+        config.strategy = StrategyType::kWaiter;
+      } else {
+        throw std::invalid_argument("지원하지 않는 전략입니다: " + strategy);
+      }
     } else {
       throw std::invalid_argument("알 수 없는 인자이거나 값이 누락되었습니다: " + arg);
     }
