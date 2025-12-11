@@ -394,6 +394,7 @@ A C++17-based concurrency lab focusing on the classic dining philosophers proble
   - How to build and run philosophers-cpp17.
   - Example commands for comparing strategies.
 - `VERSIONING.md` marks `philosophers-cpp17 v1.0.0` as portfolio-ready.
+- **Status:** 구현 완료.
 
 ---
 
