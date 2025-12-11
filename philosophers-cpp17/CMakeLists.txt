@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(philosophers-cpp17 VERSION 0.2.0 LANGUAGES CXX)
+project(philosophers-cpp17 VERSION 0.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,4 +24,8 @@ add_test(
 add_test(
     NAME PhilosophersWaiterStrategy
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/waiter_strategy.sh $<TARGET_FILE:philosophers>
+)
+add_test(
+    NAME PhilosophersFairnessMetrics
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/fairness_metrics.sh $<TARGET_FILE:philosophers>
 )

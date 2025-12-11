@@ -71,8 +71,11 @@
 
   # waiter 전략: N-1 토큰 정책으로 동시에 대기하는 철학자 수를 제한한다.
   ./philosophers-cpp17/build/philosophers --strategy waiter --duration-ms 1500 --think-ms 40 --eat-ms 50
+
+  # 공정성 지표 확인: 지터/시드를 지정해 식사 분포·최대 대기 시간을 요약한다.
+  ./philosophers-cpp17/build/philosophers --strategy ordered --duration-ms 1200 --jitter-ms 10 --random-seed 42
   ```
-  출력에는 교착 감지 여부(naive)와 `[요약] 전략=...` 라인이 포함되며 철학자별 식사 횟수를 확인할 수 있다.
+  출력에는 교착 감지 여부(naive)와 `[요약] 전략=...` 라인이 포함되며 철학자별 식사 횟수, 최대 대기 시간, 식사 분포 통계(평균/표준편차 등)를 확인할 수 있다.
 - 테스트
   ```bash
   ctest --test-dir philosophers-cpp17/build --output-on-failure

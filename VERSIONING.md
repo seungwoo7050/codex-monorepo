@@ -365,6 +365,8 @@ A C++17-based concurrency lab focusing on the classic dining philosophers proble
   - Which metrics are used.
   - How to interpret them.
 - Korean comments connect these metrics to real-world server/concurrency issues.
+- `CLONE_GUIDE.md` includes jitter/시드 예시와 요약 지표 설명.
+- **Status:** 구현 완료.
 
 ---
 
