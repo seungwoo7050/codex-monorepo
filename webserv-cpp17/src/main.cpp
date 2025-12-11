@@ -2,21 +2,24 @@
  * [모듈] webserv-cpp17/src/main.cpp
  * 설명:
  *   - HTTP/1.1 Host 헤더와 keep-alive를 지원하는 단일 스레드 이벤트 루프를 제공한다.
- *   - select 기반으로 다중 연결을 처리하며 요청 파싱과 응답 전송을 순차적으로 수행한다.
- * 버전: v0.3.0
+ *   - v0.4.0에서 /health, /metrics 등 동적 라우팅 핸들러를 추가한다.
+ * 버전: v0.4.0
  * 관련 설계문서:
  *   - design/webserv-cpp17/v0.1.0-basic-http-server.md
  *   - design/webserv-cpp17/v0.2.0-multi-connection-loop.md
  *   - design/webserv-cpp17/v0.3.0-http11-core.md
+ *   - design/webserv-cpp17/v0.4.0-dynamic-handlers.md
  * 변경 이력:
  *   - v0.1.0: 단일 연결 처리 및 고정 응답 송신 기능 추가
  *   - v0.2.0: 비동기 다중 연결 루프와 타임아웃 관리 추가
  *   - v0.3.0: Host 헤더 검증, keep-alive 처리, 요청 파싱 개선
+ *   - v0.4.0: 동적 엔드포인트(/health, /metrics) 라우팅 추가
  * 테스트:
  *   - tests/test_webserv.sh
  *   - tests/test_webserv_multi.sh
  *   - tests/test_webserv_host_header.sh
  *   - tests/test_webserv_keepalive.sh
+ *   - tests/test_webserv_dynamic.sh
  */
 
 #include <arpa/inet.h>
@@ -203,10 +206,11 @@ bool parseHttpRequest(const std::string &buffer, HttpRequest &out, std::size_t &
  */
 std::string buildResponse(int status, const std::string &message, bool keep_alive) {
     std::string status_line;
-    if (status == 200) {
-        status_line = "HTTP/1.1 200 OK\r\n";
-    } else {
-        status_line = "HTTP/1.1 400 Bad Request\r\n";
+    switch (status) {
+        case 200: status_line = "HTTP/1.1 200 OK\r\n"; break;
+        case 404: status_line = "HTTP/1.1 404 Not Found\r\n"; break;
+        case 405: status_line = "HTTP/1.1 405 Method Not Allowed\r\n"; break;
+        default: status_line = "HTTP/1.1 400 Bad Request\r\n"; break;
     }
 
     std::string connection_header = keep_alive ? "keep-alive" : "close";
@@ -217,6 +221,28 @@ std::string buildResponse(int status, const std::string &message, bool keep_aliv
         "Connection: " + connection_header + "\r\n\r\n" + body;
 
     return response;
+}
+
+bool handleDynamicRoute(const HttpRequest &request, std::string &body, int &status) {
+    if (request.method != "GET") {
+        status = 405;
+        body = "Method not allowed\n";
+        return true;
+    }
+
+    if (request.path == "/health") {
+        status = 200;
+        body = "status: ok\n";
+        return true;
+    }
+
+    if (request.path == "/metrics") {
+        status = 200;
+        body = "requests_total 1\n";
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -346,9 +372,9 @@ bool handleConnections(
                         status = 400;
                         keep_alive = false;
                         body = "Missing Host header\n";
-                    } else {
+                    } else if (!handleDynamicRoute(request, body, status)) {
                         std::string host_value = has_host ? request.headers["host"] : "host-not-set";
-                        body = "Hello from webserv v0.3.0\nHost: " + host_value + "\n";
+                        body = "Hello from webserv v0.4.0\nHost: " + host_value + "\n";
                         body += keep_alive ? "Connection: keep-alive\n" : "Connection: close\n";
                     }
 

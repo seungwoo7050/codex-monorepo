@@ -1,0 +1,10 @@
+# 간단한 Prometheus 스크랩 설정: nginx와 app 기본 메트릭 엔드포인트를 대상으로 한다.
+scrape_configs:
+  - job_name: "nginx"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["nginx:80"]
+  - job_name: "app"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["app:8085"]

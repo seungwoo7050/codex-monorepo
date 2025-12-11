@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# webserv-cpp17 v0.3.0 테스트: 동일 연결에서 두 개의 요청을 keep-alive로 처리하는지 확인한다.
+# webserv-cpp17 v0.4.0 테스트: 동일 연결에서 두 개의 요청을 keep-alive로 처리하는지 확인한다.
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -39,7 +39,7 @@ while True:
         break
     received += chunk
 s.close()
-if received.count(b"Hello from webserv v0.3.0") != 2:
+if received.count(b"Hello from webserv v0.4.0") != 2:
     print("keep-alive 응답 횟수가 2가 아닙니다.", file=sys.stderr)
     sys.exit(1)
 if b"Connection: keep-alive" not in received:
@@ -47,4 +47,4 @@ if b"Connection: keep-alive" not in received:
     sys.exit(1)
 PY
 
-echo "webserv v0.3.0 keep-alive 테스트 통과"
+echo "webserv v0.4.0 keep-alive 테스트 통과"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# webserv-cpp17 v0.3.0 테스트: Host 헤더를 가진 단일 요청 처리 후 종료 여부를 검증한다.
+# webserv-cpp17 v0.4.0 테스트: Host 헤더를 가진 단일 요청 처리 후 종료 여부를 검증한다.
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -26,7 +26,7 @@ sleep 0.2
 
 response=$(curl -s --max-time 5 "http://127.0.0.1:${port}")
 
-if ! grep -q "Hello from webserv v0.3.0" <<<"$response"; then
+if ! grep -q "Hello from webserv v0.4.0" <<<"$response"; then
   echo "응답 본문이 예상과 다릅니다." >&2
   echo "$response" >&2
   exit 1
@@ -39,4 +39,4 @@ if kill -0 "$server_pid" 2>/dev/null; then
   exit 1
 fi
 
-echo "webserv v0.3.0 단일 요청 테스트 통과"
+echo "webserv v0.4.0 단일 요청 테스트 통과"
