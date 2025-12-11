@@ -4,6 +4,7 @@ This document defines coding rules for all projects in this repository:
 
 - `minishell-cpp17`
 - `webserv-cpp17`
+- `philosophers-cpp17`
 - `infra-inception`
 - Any future projects added under this repo
 
@@ -16,6 +17,7 @@ It is written in English for AI/tooling, but **all comments and documentation MU
 - Primary implementation language:
   - `minishell-cpp17`: C++17
   - `webserv-cpp17`: C++17
+  - `philosophers-cpp17`: C++17
   - `infra-inception`: Docker, Docker Compose, shell scripts, configuration files (Nginx, DB, etc.)
 - C++ standard:
   - Use **C++17** features only.
@@ -58,6 +60,12 @@ webserv-cpp17/
   tests/
   configs/
   CMakeLists.txt
+
+philosophers-cpp17/
+  src/
+  include/
+  tests/
+  CMakeLists.txt  
 
 infra-inception/
   docker-compose.yml
@@ -148,6 +156,13 @@ Do **not** use Korean identifiers.
   * Use a single-threaded event loop initially.
   * Use select/epoll or similar mechanism for multiple connections.
   * Do not introduce multi-threading unless explicitly required by a version spec in `VERSIONING.md`.
+
+* `philosophers-cpp17`:
+
+  * Use `std::thread`, `std::mutex`, `std::condition_variable` and related primitives.
+  * Avoid undefined behavior and data races; be explicit about ownership and lifetime.
+  * Prefer clear, demonstrative implementations over micro-optimizations;
+    this project is intended as a concurrency learning/teaching lab.
 
 ---
 

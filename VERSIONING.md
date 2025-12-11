@@ -275,7 +275,125 @@ A C++17 HTTP server inspired by basic `webserv`/Nginx-like behavior.
 
 ---
 
-## 4. infra-inception
+## 4. philosophers-cpp17
+
+A C++17-based concurrency lab focusing on the classic dining philosophers problem.
+
+### v0.1.0 – Naive dining philosophers (deadlock demo)
+
+**Goal**
+
+- Implement the simplest version of the dining philosophers problem to demonstrate **deadlock** clearly.
+
+**Scope**
+
+- Implement N philosophers and N forks arranged in a circle.
+- Use C++17 threads and mutexes (`std::thread`, `std::mutex`).
+- Each philosopher repeatedly:
+  - Thinks
+  - Tries to pick up the left fork, then the right fork
+  - Eats for a short time
+- The naive locking strategy should allow a deadlock state to appear under reasonable conditions.
+- Log philosopher states (thinking, hungry, eating) and highlight when the system appears to be stuck.
+
+**Completion criteria**
+
+- Builds as a simple CLI program.
+- Provides an easy way (e.g. CLI flags or default config) to reproduce deadlock.
+- Korean comments explain:
+  - How the locking strategy works.
+  - Why deadlock can occur in this setup.
+- Design doc: `design/philosophers-cpp17/v0.1.0-naive-deadlock.md` (Korean).
+- `CLONE_GUIDE.md` contains build/run instructions for `philosophers-cpp17`.
+
+---
+
+### v0.2.0 – Deadlock-free strategies
+
+**Goal**
+
+- Implement at least two **deadlock-free** strategies and compare them against the naive version.
+
+**Scope**
+
+- Extend v0.1.0 to support multiple strategies, for example:
+  - Ordered locking: always lock the lower-indexed fork first, then the higher.
+  - Waiter/arbiter: a central coordinator that decides who may pick up forks.
+- Add CLI options such as:
+  - `--strategy naive|ordered|waiter`
+  - `--philosophers N`
+- During execution, log:
+  - Whether deadlock is detected.
+  - Basic per-philosopher statistics (e.g. number of meals).
+
+**Completion criteria**
+
+- Naive strategy can still deadlock; other strategies must not deadlock under the same conditions.
+- Korean comments in core strategy code explain:
+  - The intuition behind each strategy.
+  - Why it prevents deadlock.
+- Design doc: `design/philosophers-cpp17/v0.2.0-deadlock-free-strategies.md` (Korean).
+- `CLONE_GUIDE.md` updated with examples showing how to run each strategy.
+
+---
+
+### v0.3.0 – Starvation and fairness metrics
+
+**Goal**
+
+- Go beyond deadlock and provide simple metrics for **starvation** and **fairness**.
+
+**Scope**
+
+- For each strategy, collect statistics such as:
+  - Meals per philosopher.
+  - Maximum continuous waiting time per philosopher.
+  - Simple distribution/variance measures.
+- Add CLI options to control:
+  - Total run time.
+  - Random seed (if any randomness is used).
+- Print a summary report at the end of execution showing:
+  - Per-philosopher meal counts.
+  - Indicators of possible starvation or unfairness.
+
+**Completion criteria**
+
+- The program can run the same scenario with different strategies and print comparable statistics.
+- Design doc: `design/philosophers-cpp17/v0.3.0-starvation-and-fairness.md` (Korean) explains:
+  - Which metrics are used.
+  - How to interpret them.
+- Korean comments connect these metrics to real-world server/concurrency issues.
+
+---
+
+### v1.0.0 – Concurrency lab (portfolio-ready)
+
+**Goal**
+
+- Provide a small, well-documented “concurrency lab” suitable for explaining deadlock, starvation, and fairness in interviews or portfolio discussions.
+
+**Scope**
+
+- Consolidate previous versions into a clean structure with:
+  - Clear separation between strategies, simulation control, and reporting.
+  - A simple CLI interface for configuring runs.
+- Ensure the code is readable and well-commented in Korean.
+- Provide high-level overview documentation for the entire project.
+
+**Completion criteria**
+
+- Design doc: `design/philosophers-cpp17/v1.0.0-overview.md` (Korean) summarizing:
+  - Overall architecture.
+  - Strategies implemented.
+  - How to use the tool as a concurrency teaching aid.
+- `CLONE_GUIDE.md` includes:
+  - How to build and run philosophers-cpp17.
+  - Example commands for comparing strategies.
+- `VERSIONING.md` marks `philosophers-cpp17 v1.0.0` as portfolio-ready.
+
+---
+
+## 5. infra-inception
 
 An Inception-style infrastructure stack, tuned for a typical Korean web service scenario.
 

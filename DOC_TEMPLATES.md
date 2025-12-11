@@ -141,6 +141,12 @@ design/
     v0.2.0-multi-connection-loop.md
     ...
 
+  philosophers-cpp17/
+    initial-design.md
+    v0.1.0-naive-deadlock.md
+    v0.2.0-deadlock-free-strategies.md
+    ...
+
   infra-inception/
     initial-design.md
     v0.1.0-app-db-stack.md

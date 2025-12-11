@@ -6,6 +6,7 @@ It applies to all projects in this repo, including but not limited to:
 
 - `minishell-cpp17`
 - `webserv-cpp17`
+- `philosophers-cpp17`
 - `infra-inception` (Inception-style infra stack)
 - Any future projects added under the same repository
 
@@ -22,7 +23,7 @@ When an agent starts working in this repository, it must read the following file
 2. `CODING_GUIDE.md`
 3. `DOC_TEMPLATES.md`
 4. `VERSIONING.md`
-5. The relevant project directory (e.g. `minishell-cpp17/`, `webserv-cpp17/`, `infra-inception/`)
+5. The relevant project directory (e.g. `minishell-cpp17/`, `webserv-cpp17/`, `philosophers-cpp17/`, `infra-inception/`)
 6. If present, `CLONE_GUIDE.md` and any `design/` documents for the target project
 
 Do **not** modify `AGENTS.md` or `DOC_TEMPLATES.md` unless a human explicitly asks you to.
@@ -59,6 +60,7 @@ If you generate English comments or documentation by mistake, you must rewrite t
 - Each project has its own section in `VERSIONING.md`, for example:
   - `minishell-cpp17`
   - `webserv-cpp17`
+  - `philosophers-cpp17`
   - `infra-inception`
 - When working on a task, you must:
   - Identify **exactly one** target project.
@@ -120,6 +122,7 @@ For any project/version combination (e.g. `webserv-cpp17 v0.2.0`), you MUST foll
        - `design/minishell-cpp17/v0.2.0-env-and-builtins.md`
        - `design/webserv-cpp17/v0.3.0-http11-core.md`
        - `design/infra-inception/v0.2.0-nginx-redis-stack.md`
+       - `design/philosophers-cpp17/v0.2.0-deadlock-free-strategies.md`
      - Use the templates in `DOC_TEMPLATES.md`.
      - Write in **Korean**.
      - Document:
@@ -184,6 +187,7 @@ CLONE_GUIDE.md           # created/updated as versions progress
 
 minishell-cpp17/         # project code
 webserv-cpp17/           # project code
+philosophers-cpp17/      # project code
 infra-inception/         # project code
 
 design/
@@ -192,6 +196,9 @@ design/
     v0.2.0-*.md
     ...
   webserv-cpp17/
+    v0.1.0-*.md
+    ...
+  philosophers-cpp17/
     v0.1.0-*.md
     ...
   infra-inception/
