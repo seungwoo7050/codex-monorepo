@@ -55,6 +55,7 @@ A C++17-based reimplementation of a minimal POSIX-style shell.
 - Korean comments added for core modules/functions.
 - Design doc: `design/minishell-cpp17/v0.1.0-minimal-shell.md` written in Korean.
 - `CLONE_GUIDE.md` updated with basic build/run instructions for `minishell-cpp17`.
+- **Status:** 구현 완료.
 
 ---
 
@@ -177,6 +178,7 @@ A C++17 HTTP server inspired by basic `webserv`/Nginx-like behavior.
   - 404 for missing file.
 - Design doc: `design/webserv-cpp17/v0.1.0-basic-http-server.md`.
 - Korean comments in core server loop.
+- **Status:** 구현 완료.
 
 ---
 
@@ -285,6 +287,7 @@ An Inception-style infrastructure stack, tuned for a typical Korean web service 
 - Basic `docker compose up/down` works.
 - Design doc: `design/infra-inception/v0.1.0-app-db-stack.md`.
 - `CLONE_GUIDE.md` contains clone/run instructions for `infra-inception`.
+- **Status:** 구현 완료.
 
 ---
 
