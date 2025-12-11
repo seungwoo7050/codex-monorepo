@@ -1,7 +1,7 @@
 # CLONE_GUIDE
 
 ## 개요
-이 저장소는 세 개의 프로젝트(minishell-cpp17, webserv-cpp17, infra-inception)를 포함한다. 모든 주석과 문서는 한국어로 작성되어 있으며, 빌드/테스트 방법은 아래를 따른다.
+이 저장소는 세 개의 프로젝트(minishell-cpp17, webserv-cpp17, infra-inception)를 포함한다. 모든 주석과 문서는 한국어로 작성되어 있으며, 빌드/테스트 방법은 아래를 따른다. 각 프로젝트는 v1.0.0 기준 포트폴리오용으로 정리되어 있으며, 세부 설명은 프로젝트별 README를 참고한다.
 
 ## 공통 요구사항
 - CMake 3.16 이상
@@ -10,6 +10,7 @@
 - Docker, Docker Compose (infra-inception 실행용)
 
 ## minishell-cpp17
+- README: `minishell-cpp17/README.md`에서 기능과 실행 예시를 요약했다.
 - 빌드
   ```bash
   cmake -S minishell-cpp17 -B minishell-cpp17/build
@@ -22,6 +23,7 @@
 - 주요 옵션: 인터랙티브 루프에서 환경 변수 확장, cd/exit/env 빌트인, 파이프(`|`)와 리다이렉션(`<`, `>`, `>>`)을 지원한다. Ctrl+C로 현재 작업을 중단하고 Ctrl+D(EOF)로 종료할 수 있다.
 
 ## webserv-cpp17
+- README: `webserv-cpp17/README.md`에서 이벤트 루프와 핸들러 구성을 설명한다.
 - 빌드
   ```bash
   cmake -S webserv-cpp17 -B webserv-cpp17/build
@@ -38,6 +40,7 @@
 - select 기반 이벤트 루프를 사용하며, Host 헤더 검증과 keep-alive를 지원한다. 타임아웃은 약 1.5초로 설정되어 있고, `/health`, `/metrics` 동적 엔드포인트를 기본 제공한다.
 
 ## infra-inception
+- README: `infra-inception/README.md`에서 서비스 구성과 운영 메모를 확인한다.
 - 요구사항: Docker, Docker Compose
 - 실행
   ```bash
