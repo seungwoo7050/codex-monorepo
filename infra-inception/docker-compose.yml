@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  app:
+    build: ./services/app
+    container_name: infra_app
+    ports:
+      - "8085:8085"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_USER=demo
+      - DB_PASSWORD=demo_pass
+      - DB_NAME=demo_db
+    # 단순 데모용 앱 컨테이너로, DB 연결 설정만 환경 변수로 전달한다.
+
+  db:
+    image: mariadb:10.11
+    container_name: infra_db
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=change_me_root
+      - MARIADB_DATABASE=demo_db
+      - MARIADB_USER=demo
+      - MARIADB_PASSWORD=demo_pass
+    volumes:
+      - ./services/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3307:3306"
+    # 기본 스키마 초기화를 위해 init.sql을 마운트한다.

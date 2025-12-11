@@ -1,0 +1,3 @@
+# CMake build directories
+minishell-cpp17/build/
+webserv-cpp17/build/
