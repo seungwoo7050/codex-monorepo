@@ -55,7 +55,7 @@
 - 구성: app(db/redis 의존), db(MariaDB), redis, nginx(8080 포트 프록시) 서비스를 포함한다. 모든 서비스는 `TZ=Asia/Seoul` 환경을 사용하며 DB는 `utf8mb4` 설정, Nginx는 gzip/시간 로그 포맷으로 튜닝되어 있다. 정적 파일은 `services/nginx/static/`에서 제공되며, Prometheus(9090)와 Grafana(3000) 모니터링 스택이 추가되었다.
 
 ## philosophers-cpp17
-- 설명: 고전 식사하는 철학자 문제를 C++17 스레드/뮤텍스로 구현한 학습용 데모이다. v0.1.0에서는 좌측→우측 순서로 포크를 집는 단순 전략으로 교착 징후를 관찰한다.
+- 설명: 고전 식사하는 철학자 문제를 C++17 스레드/뮤텍스로 구현한 학습용 데모이다. v0.2.0에서는 naive/ordered/waiter 전략을 선택적으로 실행해 교착과 회피 사례를 비교한다.
 - 빌드
   ```bash
   cmake -S philosophers-cpp17 -B philosophers-cpp17/build
@@ -63,9 +63,16 @@
   ```
 - 실행 예시
   ```bash
-  ./philosophers-cpp17/build/philosophers --duration-ms 2200 --lock-timeout-ms 1000 --stuck-threshold-ms 900
+  # naive 전략: 교착 징후 메시지가 출력된다.
+  ./philosophers-cpp17/build/philosophers --duration-ms 2200 --lock-timeout-ms 1000 --stuck-threshold-ms 900 --strategy naive
+
+  # ordered 전략: 낮은 번호 포크부터 잠그는 방식으로 교착 없이 진행된다.
+  ./philosophers-cpp17/build/philosophers --strategy ordered --duration-ms 1500 --think-ms 40 --eat-ms 40
+
+  # waiter 전략: N-1 토큰 정책으로 동시에 대기하는 철학자 수를 제한한다.
+  ./philosophers-cpp17/build/philosophers --strategy waiter --duration-ms 1500 --think-ms 40 --eat-ms 50
   ```
-  위 기본값은 첫 번째 사이클에서 교착 징후 안내 메시지가 출력되도록 맞추어져 있다.
+  출력에는 교착 감지 여부(naive)와 `[요약] 전략=...` 라인이 포함되며 철학자별 식사 횟수를 확인할 수 있다.
 - 테스트
   ```bash
   ctest --test-dir philosophers-cpp17/build --output-on-failure

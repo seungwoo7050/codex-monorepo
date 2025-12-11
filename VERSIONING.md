@@ -335,6 +335,7 @@ A C++17-based concurrency lab focusing on the classic dining philosophers proble
   - Why it prevents deadlock.
 - Design doc: `design/philosophers-cpp17/v0.2.0-deadlock-free-strategies.md` (Korean).
 - `CLONE_GUIDE.md` updated with examples showing how to run each strategy.
+- **Status:** 구현 완료.
 
 ---
 
