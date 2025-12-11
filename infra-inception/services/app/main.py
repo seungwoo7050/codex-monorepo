@@ -1,9 +1,9 @@
 """
 단순 데모용 HTTP 서버.
 - DB, Redis 연결 설정을 환경 변수로 받아 상태를 노출한다.
-- GET 요청마다 현재 설정과 버전 정보를 반환한다.
-버전: v0.2.0
-설계: design/infra-inception/v0.2.0-nginx-redis-stack.md
+- GET 요청마다 현재 설정과 버전, 타임존을 반환한다.
+버전: v0.3.0
+설계: design/infra-inception/v0.3.0-kor-tuning.md
 """
 import http.server
 import os
@@ -14,10 +14,11 @@ PORT = 8085
 
 
 def build_body():
-    """환경 변수와 Redis 상태를 포함한 응답 본문을 생성한다."""
+    """환경 변수, Redis 상태, 타임존을 포함한 응답 본문을 생성한다."""
     db_host = os.environ.get("DB_HOST", "unset")
     redis_host = os.environ.get("REDIS_HOST", "unset")
     redis_port = int(os.environ.get("REDIS_PORT", "6379"))
+    timezone = os.environ.get("TZ", "unset")
 
     redis_status = "unknown"
     try:
@@ -28,9 +29,10 @@ def build_body():
         redis_status = f"error:{exc.__class__.__name__}"
 
     message = (
-        "infra-inception v0.2.0 app running\n"
+        "infra-inception v0.3.0 app running\n"
         f"DB_HOST={db_host}\n"
         f"REDIS={redis_host}:{redis_port} status={redis_status}\n"
+        f"TIMEZONE={timezone}\n"
     )
     return message.encode("utf-8")
 

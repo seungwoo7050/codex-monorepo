@@ -1,37 +1,42 @@
 /**
  * [모듈] minishell-cpp17/src/main.cpp
  * 설명:
- *   - 환경 변수 확장과 빌트인을 지원하는 단일 라인 셸 엔트리포인트를 제공한다.
- *   - 공백 기반 토큰화 후 빌트인을 우선 처리하고, 외부 명령은 자식 프로세스로 실행한다.
- * 버전: v0.2.0
+ *   - 파이프라인과 리다이렉션을 포함한 단일 라인 셸을 실행한다.
+ *   - 환경 변수 확장 후 파싱, 빌트인 처리, 파이프/리다이렉션이 적용된 프로세스 실행을 담당한다.
+ * 버전: v0.3.0
  * 관련 설계문서:
  *   - design/minishell-cpp17/v0.1.0-minimal-shell.md
  *   - design/minishell-cpp17/v0.2.0-env-and-builtins.md
+ *   - design/minishell-cpp17/v0.3.0-pipelines-and-redirections.md
  * 변경 이력:
  *   - v0.1.0: 단일 명령 실행과 종료 코드 출력 기능 추가
  *   - v0.2.0: 환경 변수 확장, cd/exit/env 빌트인 추가 및 종료 코드 전달
+ *   - v0.3.0: 파이프, 입력/출력(append) 리다이렉션 지원 및 종료 코드 전달 개선
  * 테스트:
  *   - tests/run_echo.sh
  *   - tests/env_expansion.sh
  *   - tests/builtin_cd_env.sh
  *   - tests/builtin_exit_status.sh
+ *   - tests/pipeline_basic.sh
+ *   - tests/redirection_basic.sh
  */
 
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <cerrno>
+#include <cctype>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
-#include <cctype>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
-
-#include <unistd.h>
 
 extern char **environ;
 
@@ -53,14 +58,39 @@ namespace {
  *   - tests/run_echo.sh
  */
 std::vector<std::string> splitArguments(const std::string &line) {
-    std::istringstream stream(line);
     std::vector<std::string> tokens;
-    std::string token;
+    std::string current;
 
-    while (stream >> token) {
-        tokens.push_back(token);
+    auto flush_token = [&]() {
+        if (!current.empty()) {
+            tokens.push_back(current);
+            current.clear();
+        }
+    };
+
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        char c = line[i];
+        if (std::isspace(static_cast<unsigned char>(c))) {
+            flush_token();
+            continue;
+        }
+
+        if (c == '|' || c == '<' || c == '>') {
+            flush_token();
+            if (c == '>' && i + 1 < line.size() && line[i + 1] == '>') {
+                tokens.push_back(">");
+                tokens.back().push_back('>');
+                ++i;
+            } else {
+                tokens.push_back(std::string(1, c));
+            }
+            continue;
+        }
+
+        current.push_back(c);
     }
 
+    flush_token();
     return tokens;
 }
 
@@ -242,6 +272,231 @@ bool runBuiltin(const std::vector<std::string> &args, bool &should_exit, int &ex
     return false;
 }
 
+struct Command {
+    std::vector<std::string> args;
+    std::optional<std::string> input_file;
+    std::optional<std::string> output_file;
+    bool append_output;
+};
+
+/**
+ * parsePipeline
+ * 설명:
+ *   - 토큰 목록을 파이프라인 명령 구조로 변환한다.
+ * 입력:
+ *   - tokens: 공백/연산자 단위로 분리된 토큰 목록
+ * 출력:
+ *   - 파이프/리다이렉션 정보가 포함된 명령 벡터. 실패 시 std::nullopt.
+ * 에러:
+ *   - 리다이렉션 대상이 없거나 파이프 양끝이 비어 있을 때 오류 메시지를 출력한다.
+ * 관련 설계문서:
+ *   - design/minishell-cpp17/v0.3.0-pipelines-and-redirections.md
+ * 관련 테스트:
+ *   - tests/pipeline_basic.sh
+ *   - tests/redirection_basic.sh
+ */
+std::optional<std::vector<Command> > parsePipeline(const std::vector<std::string> &tokens) {
+    std::vector<Command> commands;
+    Command current;
+    current.append_output = false;
+
+    auto push_current = [&]() -> bool {
+        if (current.args.empty()) {
+            std::cerr << "파이프의 한쪽 명령이 비어 있습니다." << std::endl;
+            return false;
+        }
+        commands.push_back(current);
+        current = Command();
+        current.append_output = false;
+        return true;
+    };
+
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const std::string &token = tokens[i];
+        if (token == "|") {
+            if (!push_current()) {
+                return std::nullopt;
+            }
+            continue;
+        }
+
+        if (token == "<" || token == ">" || token == ">>") {
+            if (i + 1 >= tokens.size()) {
+                std::cerr << "리다이렉션 대상이 누락되었습니다." << std::endl;
+                return std::nullopt;
+            }
+            const std::string &target = tokens[i + 1];
+            if (token == "<") {
+                current.input_file = target;
+            } else {
+                current.output_file = target;
+                current.append_output = (token == ">>");
+            }
+            ++i;
+            continue;
+        }
+
+        current.args.push_back(token);
+    }
+
+    if (!current.args.empty()) {
+        if (!push_current()) {
+            return std::nullopt;
+        }
+    }
+
+    if (commands.empty()) {
+        std::cerr << "실행할 명령이 없습니다." << std::endl;
+        return std::nullopt;
+    }
+
+    return commands;
+}
+
+/**
+ * setupRedirection
+ * 설명:
+ *   - 입력/출력 리다이렉션을 위해 파일을 열고 FD를 교체한다.
+ * 입력:
+ *   - cmd: 리다이렉션 정보가 포함된 명령 구조체
+ * 출력:
+ *   - 성공 시 true, 실패 시 false
+ * 에러:
+ *   - 파일 열기/dup2 실패 시 한국어 오류 메시지를 남기고 false를 반환한다.
+ * 관련 설계문서:
+ *   - design/minishell-cpp17/v0.3.0-pipelines-and-redirections.md
+ * 관련 테스트:
+ *   - tests/redirection_basic.sh
+ */
+bool setupRedirection(const Command &cmd) {
+    if (cmd.input_file.has_value()) {
+        int fd = open(cmd.input_file->c_str(), O_RDONLY);
+        if (fd < 0) {
+            std::cerr << "입력 파일을 열 수 없습니다: " << std::strerror(errno) << std::endl;
+            return false;
+        }
+        if (dup2(fd, STDIN_FILENO) < 0) {
+            std::cerr << "표준 입력 대체 실패: " << std::strerror(errno) << std::endl;
+            close(fd);
+            return false;
+        }
+        close(fd);
+    }
+
+    if (cmd.output_file.has_value()) {
+        int flags = O_WRONLY | O_CREAT;
+        flags |= cmd.append_output ? O_APPEND : O_TRUNC;
+        int fd = open(cmd.output_file->c_str(), flags, 0644);
+        if (fd < 0) {
+            std::cerr << "출력 파일을 열 수 없습니다: " << std::strerror(errno) << std::endl;
+            return false;
+        }
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+            std::cerr << "표준 출력 대체 실패: " << std::strerror(errno) << std::endl;
+            close(fd);
+            return false;
+        }
+        close(fd);
+    }
+
+    return true;
+}
+
+/**
+ * executePipeline
+ * 설명:
+ *   - 파싱된 명령 벡터를 순차적으로 파이프 연결 후 실행한다.
+ * 입력:
+ *   - commands: 파이프/리다이렉션 정보가 포함된 명령 목록
+ * 출력:
+ *   - 마지막 프로세스의 종료 코드를 반환한다. 실패 시 -1.
+ * 에러:
+ *   - fork/pipe/exec 실패 시 한국어 오류 메시지를 출력하고 -1을 반환한다.
+ * 관련 설계문서:
+ *   - design/minishell-cpp17/v0.3.0-pipelines-and-redirections.md
+ * 관련 테스트:
+ *   - tests/pipeline_basic.sh
+ *   - tests/redirection_basic.sh
+ */
+int executePipeline(const std::vector<Command> &commands) {
+    std::vector<pid_t> children;
+    std::vector<int> pipes;
+
+    if (commands.size() > 1) {
+        pipes.resize((commands.size() - 1) * 2, -1);
+        for (std::size_t i = 0; i + 1 < commands.size(); ++i) {
+            if (pipe(&pipes[i * 2]) < 0) {
+                std::cerr << "파이프 생성 실패: " << std::strerror(errno) << std::endl;
+                for (int fd : pipes) {
+                    if (fd >= 0) close(fd);
+                }
+                return -1;
+            }
+        }
+    }
+
+    for (std::size_t idx = 0; idx < commands.size(); ++idx) {
+        pid_t pid = fork();
+        if (pid < 0) {
+            std::cerr << "프로세스 생성 실패: " << std::strerror(errno) << std::endl;
+            return -1;
+        }
+
+        if (pid == 0) {
+            if (commands.size() > 1) {
+                if (idx > 0) {
+                    int in_fd = pipes[(idx - 1) * 2];
+                    dup2(in_fd, STDIN_FILENO);
+                }
+                if (idx + 1 < commands.size()) {
+                    int out_fd = pipes[idx * 2 + 1];
+                    dup2(out_fd, STDOUT_FILENO);
+                }
+                for (int fd : pipes) {
+                    if (fd >= 0) close(fd);
+                }
+            }
+
+            if (!setupRedirection(commands[idx])) {
+                _exit(EXIT_FAILURE);
+            }
+
+            std::vector<char *> argv;
+            argv.reserve(commands[idx].args.size() + 1);
+            for (const std::string &arg : commands[idx].args) {
+                argv.push_back(const_cast<char *>(arg.c_str()));
+            }
+            argv.push_back(nullptr);
+
+            execvp(argv[0], argv.data());
+            std::cerr << "명령 실행 실패: " << std::strerror(errno) << std::endl;
+            _exit(127);
+        }
+
+        children.push_back(pid);
+    }
+
+    for (int fd : pipes) {
+        if (fd >= 0) close(fd);
+    }
+
+    int status = 0;
+    int last_exit = 0;
+    for (pid_t child : children) {
+        if (waitpid(child, &status, 0) < 0) {
+            std::cerr << "자식 프로세스 대기 실패: " << std::strerror(errno) << std::endl;
+            return -1;
+        }
+        if (WIFEXITED(status)) {
+            last_exit = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            last_exit = 128 + WTERMSIG(status);
+        }
+    }
+
+    return last_exit;
+}
+
 }  // namespace
 
 int main() {
@@ -254,24 +509,32 @@ int main() {
     }
 
     std::string expanded = expandVariables(line);
-    std::vector<std::string> args = splitArguments(expanded);
-    if (args.empty()) {
+    std::vector<std::string> tokens = splitArguments(expanded);
+    if (tokens.empty()) {
         std::cerr << "실행할 명령이 없습니다." << std::endl;
         return EXIT_SUCCESS;
     }
 
-    bool should_exit = false;
-    int builtin_exit = 0;
-    if (runBuiltin(args, should_exit, builtin_exit)) {
-        if (should_exit) {
-            return builtin_exit;
-        }
-
-        std::cout << "exit status: " << builtin_exit << std::endl;
-        return builtin_exit;
+    std::optional<std::vector<Command> > parsed = parsePipeline(tokens);
+    if (!parsed.has_value()) {
+        return EXIT_FAILURE;
     }
 
-    int exit_code = executeCommand(args);
+    const std::vector<Command> &commands = parsed.value();
+    if (commands.size() == 1) {
+        bool should_exit = false;
+        int builtin_exit = 0;
+        if (runBuiltin(commands[0].args, should_exit, builtin_exit)) {
+            if (should_exit) {
+                return builtin_exit;
+            }
+
+            std::cout << "exit status: " << builtin_exit << std::endl;
+            return builtin_exit;
+        }
+    }
+
+    int exit_code = executePipeline(commands);
     if (exit_code < 0) {
         return EXIT_FAILURE;
     }

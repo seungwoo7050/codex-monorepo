@@ -1,36 +1,56 @@
 /**
  * [모듈] webserv-cpp17/src/main.cpp
  * 설명:
- *   - select 기반 이벤트 루프로 여러 클라이언트 연결을 동시에 처리한다.
- *   - 연결 타임아웃을 감시하고 최대 요청 수를 처리하면 종료한다.
- * 버전: v0.2.0
+ *   - HTTP/1.1 Host 헤더와 keep-alive를 지원하는 단일 스레드 이벤트 루프를 제공한다.
+ *   - select 기반으로 다중 연결을 처리하며 요청 파싱과 응답 전송을 순차적으로 수행한다.
+ * 버전: v0.3.0
  * 관련 설계문서:
  *   - design/webserv-cpp17/v0.1.0-basic-http-server.md
  *   - design/webserv-cpp17/v0.2.0-multi-connection-loop.md
+ *   - design/webserv-cpp17/v0.3.0-http11-core.md
  * 변경 이력:
  *   - v0.1.0: 단일 연결 처리 및 고정 응답 송신 기능 추가
  *   - v0.2.0: 비동기 다중 연결 루프와 타임아웃 관리 추가
+ *   - v0.3.0: Host 헤더 검증, keep-alive 처리, 요청 파싱 개선
  * 테스트:
  *   - tests/test_webserv.sh
  *   - tests/test_webserv_multi.sh
+ *   - tests/test_webserv_host_header.sh
+ *   - tests/test_webserv_keepalive.sh
  */
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <fcntl.h>
 
-#include <chrono>
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <map>
+#include <sstream>
 #include <string>
 #include <vector>
+#include <chrono>
 
 namespace {
+
+struct HttpRequest {
+    std::string method;
+    std::string path;
+    std::string version;
+    std::map<std::string, std::string> headers;
+};
+
+struct Connection {
+    int fd;
+    std::string buffer;
+    std::chrono::steady_clock::time_point last_active;
+    bool should_close;
+};
 
 /**
  * createListenSocket
@@ -87,34 +107,114 @@ int createListenSocket(uint16_t port) {
     return fd;
 }
 
-struct Connection {
-    int fd;
-    std::string buffer;
-    std::chrono::steady_clock::time_point last_active;
-};
+/**
+ * toLower
+ * 설명:
+ *   - 헤더 키 비교를 단순화하기 위해 소문자로 변환한다.
+ */
+std::string toLower(const std::string &input) {
+    std::string lowered;
+    lowered.reserve(input.size());
+    for (char c : input) {
+        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return lowered;
+}
+
+/**
+ * parseHttpRequest
+ * 설명:
+ *   - 수신 버퍼에서 HTTP 요청 라인과 헤더를 파싱하고 소모한 길이를 반환한다.
+ * 입력:
+ *   - buffer: 현재까지 누적된 원시 요청 문자열
+ * 출력:
+ *   - 성공 시 HttpRequest와 소모 길이, 실패 시 false
+ * 에러:
+ *   - 헤더 구분자가 없으면 false를 반환하여 추가 데이터를 기다린다.
+ *   - 형식 오류 시 false를 반환하고 호출자가 연결을 종료하도록 한다.
+ * 관련 설계문서:
+ *   - design/webserv-cpp17/v0.3.0-http11-core.md
+ * 관련 테스트:
+ *   - tests/test_webserv_host_header.sh
+ */
+bool parseHttpRequest(const std::string &buffer, HttpRequest &out, std::size_t &consumed) {
+    std::size_t header_end = buffer.find("\r\n\r\n");
+    if (header_end == std::string::npos) {
+        return false;
+    }
+
+    std::istringstream stream(buffer.substr(0, header_end));
+    std::string request_line;
+    if (!std::getline(stream, request_line)) {
+        consumed = header_end + 4;
+        return false;
+    }
+
+    if (!request_line.empty() && request_line.back() == '\r') {
+        request_line.pop_back();
+    }
+
+    std::istringstream line_stream(request_line);
+    if (!(line_stream >> out.method >> out.path >> out.version)) {
+        consumed = header_end + 4;
+        return false;
+    }
+
+    std::string header_line;
+    while (std::getline(stream, header_line)) {
+        if (!header_line.empty() && header_line.back() == '\r') {
+            header_line.pop_back();
+        }
+        if (header_line.empty()) {
+            continue;
+        }
+        std::size_t colon = header_line.find(':');
+        if (colon == std::string::npos) {
+            continue;
+        }
+        std::string key = header_line.substr(0, colon);
+        std::string value = header_line.substr(colon + 1);
+        while (!value.empty() && value.front() == ' ') {
+            value.erase(value.begin());
+        }
+        out.headers[toLower(key)] = value;
+    }
+
+    consumed = header_end + 4;
+    return true;
+}
 
 /**
  * buildResponse
  * 설명:
- *   - v0.2.0 버전에 맞춘 고정 HTTP 응답을 구성한다.
+ *   - 상태 코드, 본문, keep-alive 여부에 맞춰 HTTP 응답을 구성한다.
  * 입력:
- *   - 없음
+ *   - status: HTTP 상태 코드
+ *   - message: 본문 문자열
+ *   - keep_alive: 연결을 유지할지 여부
  * 출력:
- *   - 클라이언트로 전송할 HTTP 문자열
+ *   - 직렬화된 HTTP 응답 문자열
  * 에러:
- *   - 없음 (고정 문자열 생성)
+ *   - 없음 (고정 문자열 조합)
  * 관련 설계문서:
- *   - design/webserv-cpp17/v0.2.0-multi-connection-loop.md
+ *   - design/webserv-cpp17/v0.3.0-http11-core.md
  * 관련 테스트:
- *   - tests/test_webserv_multi.sh
+ *   - tests/test_webserv_keepalive.sh
  */
-std::string buildResponse() {
-    const std::string body = "Hello from webserv v0.2.0\n";
-    std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain; charset=utf-8\r\n"
-        "Content-Length: " + std::to_string(body.size()) + "\r\n"
-        "Connection: close\r\n\r\n" + body;
+std::string buildResponse(int status, const std::string &message, bool keep_alive) {
+    std::string status_line;
+    if (status == 200) {
+        status_line = "HTTP/1.1 200 OK\r\n";
+    } else {
+        status_line = "HTTP/1.1 400 Bad Request\r\n";
+    }
+
+    std::string connection_header = keep_alive ? "keep-alive" : "close";
+    std::string body = message;
+    std::string response = status_line +
+        "Content-Type: text/plain; charset=utf-8\r\n" +
+        "Content-Length: " + std::to_string(body.size()) + "\r\n" +
+        "Connection: " + connection_header + "\r\n\r\n" + body;
 
     return response;
 }
@@ -123,48 +223,41 @@ std::string buildResponse() {
  * closeConnection
  * 설명:
  *   - 연결 FD를 닫고 목록에서 제거한다.
- * 입력:
- *   - connections: 관리 중인 연결 목록
- *   - index: 제거할 연결 인덱스
- * 출력:
- *   - 없음
- * 에러:
- *   - close 실패 시 로그만 남기며 계속 진행한다.
- * 관련 설계문서:
- *   - design/webserv-cpp17/v0.2.0-multi-connection-loop.md
  */
 void closeConnection(std::vector<Connection> &connections, std::size_t index) {
     if (index >= connections.size()) {
         return;
     }
+
     ::close(connections[index].fd);
-    connections.erase(connections.begin() + index);
+    connections.erase(connections.begin() + static_cast<std::ptrdiff_t>(index));
 }
 
 /**
  * handleConnections
  * 설명:
- *   - select 결과에 따라 새 연결을 수락하고 기존 연결에서 요청을 읽어 응답한다.
+ *   - select를 사용해 다중 연결을 감시하고, 요청 파싱/응답 전송을 수행한다.
  * 입력:
- *   - listen_fd: 리슨 소켓
- *   - connections: 관리 중인 연결 벡터
- *   - timeout: 연결 타임아웃
- *   - max_requests: 최대 처리 요청 수
- *   - handled: 지금까지 처리 완료한 연결 개수
+ *   - listen_fd: 수신 소켓 FD
+ *   - connections: 현재 열린 연결 목록
+ *   - timeout: 비활성 타임아웃
+ *   - max_requests: 처리할 최대 요청 수
+ *   - handled: 이미 처리한 요청 수
  * 출력:
- *   - 요청 처리 중 오류가 없으면 true
+ *   - 에러 없이 루프를 유지하면 true, 치명적 오류 시 false
  * 에러:
- *   - 수락/송수신 오류는 stderr에 기록하고 해당 연결만 종료한다.
+ *   - select/recv/send 실패 시 stderr에 한국어 메시지를 남기고 false를 반환한다.
  * 관련 설계문서:
- *   - design/webserv-cpp17/v0.2.0-multi-connection-loop.md
+ *   - design/webserv-cpp17/v0.3.0-http11-core.md
  * 관련 테스트:
- *   - tests/test_webserv_multi.sh
+ *   - tests/test_webserv_keepalive.sh
  */
-bool handleConnections(int listen_fd,
-                      std::vector<Connection> &connections,
-                      std::chrono::milliseconds timeout,
-                      std::size_t max_requests,
-                      std::size_t &handled) {
+bool handleConnections(
+    int listen_fd,
+    std::vector<Connection> &connections,
+    const std::chrono::milliseconds &timeout,
+    std::size_t max_requests,
+    std::size_t &handled) {
     fd_set read_set;
     FD_ZERO(&read_set);
     FD_SET(listen_fd, &read_set);
@@ -209,37 +302,78 @@ bool handleConnections(int listen_fd,
                 fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
             }
 
-            connections.push_back(Connection{client_fd, std::string(), now});
+            connections.push_back(Connection{client_fd, std::string(), now, false});
         }
     }
 
     for (std::size_t i = 0; i < connections.size();) {
         bool erased = false;
-        if (FD_ISSET(connections[i].fd, &read_set)) {
-            char buffer[2048];
-            ssize_t received = recv(connections[i].fd, buffer, sizeof(buffer), 0);
+        Connection &conn = connections[i];
+        if (FD_ISSET(conn.fd, &read_set)) {
+            char buffer[4096];
+            ssize_t received = recv(conn.fd, buffer, sizeof(buffer), 0);
             if (received <= 0) {
                 closeConnection(connections, i);
                 erased = true;
             } else {
-                connections[i].buffer.append(buffer, static_cast<std::size_t>(received));
-                connections[i].last_active = now;
-                std::string response = buildResponse();
-                ssize_t sent = send(connections[i].fd, response.c_str(), response.size(), 0);
-                if (sent < 0) {
-                    std::cerr << "응답 송신 실패: " << std::strerror(errno) << std::endl;
-                }
-                closeConnection(connections, i);
-                erased = true;
-                ++handled;
-                if (handled >= max_requests) {
-                    break;
+                conn.buffer.append(buffer, static_cast<std::size_t>(received));
+                conn.last_active = now;
+
+                while (true) {
+                    HttpRequest request;
+                    std::size_t consumed = 0;
+                    if (!parseHttpRequest(conn.buffer, request, consumed)) {
+                        break;
+                    }
+
+                    bool is_http11 = (request.version == "HTTP/1.1");
+                    bool has_host = request.headers.find("host") != request.headers.end();
+
+                    bool keep_alive = false;
+                    if (is_http11) {
+                        keep_alive = request.headers.find("connection") == request.headers.end() ||
+                                     toLower(request.headers.find("connection")->second) != "close";
+                    } else if (request.version == "HTTP/1.0") {
+                        auto it = request.headers.find("connection");
+                        if (it != request.headers.end() && toLower(it->second) == "keep-alive") {
+                            keep_alive = true;
+                        }
+                    }
+
+                    std::string body;
+                    int status = 200;
+                    if (is_http11 && !has_host) {
+                        status = 400;
+                        keep_alive = false;
+                        body = "Missing Host header\n";
+                    } else {
+                        std::string host_value = has_host ? request.headers["host"] : "host-not-set";
+                        body = "Hello from webserv v0.3.0\nHost: " + host_value + "\n";
+                        body += keep_alive ? "Connection: keep-alive\n" : "Connection: close\n";
+                    }
+
+                    std::string response = buildResponse(status, body, keep_alive);
+                    ssize_t sent = send(conn.fd, response.c_str(), response.size(), 0);
+                    if (sent < 0) {
+                        std::cerr << "응답 송신 실패: " << std::strerror(errno) << std::endl;
+                        closeConnection(connections, i);
+                        erased = true;
+                        break;
+                    }
+
+                    handled++;
+                    conn.buffer.erase(0, consumed);
+                    if (!keep_alive || handled >= max_requests) {
+                        closeConnection(connections, i);
+                        erased = true;
+                        break;
+                    }
                 }
             }
         }
 
         if (!erased) {
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - connections[i].last_active) > timeout) {
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - conn.last_active) > timeout) {
                 std::cerr << "연결 타임아웃 발생" << std::endl;
                 closeConnection(connections, i);
                 erased = true;
