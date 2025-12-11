@@ -1,0 +1,52 @@
+name: Monorepo CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  philosophers-cpp17:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+      - name: CMake 설정 (philosophers-cpp17)
+        run: cmake -S philosophers-cpp17 -B philosophers-cpp17/build
+      - name: 빌드 (philosophers-cpp17)
+        run: cmake --build philosophers-cpp17/build
+      - name: 테스트 (philosophers-cpp17)
+        run: ctest --test-dir philosophers-cpp17/build --output-on-failure
+
+  minishell-cpp17:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+      - name: CMake 설정 (minishell-cpp17)
+        run: cmake -S minishell-cpp17 -B minishell-cpp17/build
+      - name: 빌드 (minishell-cpp17)
+        run: cmake --build minishell-cpp17/build
+      - name: 테스트 (minishell-cpp17)
+        run: ctest --test-dir minishell-cpp17/build --output-on-failure
+
+  webserv-cpp17:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+      - name: CMake 설정 (webserv-cpp17)
+        run: cmake -S webserv-cpp17 -B webserv-cpp17/build
+      - name: 빌드 (webserv-cpp17)
+        run: cmake --build webserv-cpp17/build
+      - name: 테스트 (webserv-cpp17)
+        run: ctest --test-dir webserv-cpp17/build --output-on-failure
+
+  infra-inception:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+      - name: Docker Compose 구성 검증
+        run: docker compose -f infra-inception/docker-compose.yml config
