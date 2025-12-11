@@ -155,6 +155,7 @@ A C++17-based reimplementation of a minimal POSIX-style shell.
 - All previous version criteria met.
 - Design doc: `design/minishell-cpp17/v1.0.0-overview.md` summarizing final architecture.
 - `VERSIONING.md` marks v1.0.0 as “portfolio-ready”.
+- **Status:** 구현 완료.
 
 ---
 
@@ -270,6 +271,7 @@ A C++17 HTTP server inspired by basic `webserv`/Nginx-like behavior.
 - All previous version criteria met.
 - Design doc: `design/webserv-cpp17/v1.0.0-overview.md`.
 - `VERSIONING.md` marks v1.0.0 as “portfolio-ready”.
+- **Status:** 구현 완료.
 
 ---
 
@@ -382,4 +384,5 @@ An Inception-style infrastructure stack, tuned for a typical Korean web service 
 - All previous version criteria met.
 - Design doc: `design/infra-inception/v1.0.0-overview.md`.
 - `VERSIONING.md` marks v1.0.0 as “portfolio-ready”.
+- **Status:** 구현 완료.
 ```
