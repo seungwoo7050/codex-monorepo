@@ -111,6 +111,8 @@ A C++17-based reimplementation of a minimal POSIX-style shell.
 - Design doc: `design/minishell-cpp17/v0.3.0-pipelines-and-redirections.md`.
 - All core execution paths commented in Korean.
 
+- **Status:** 구현 완료.
+
 ---
 
 ### v0.4.0 – Signals and error handling
@@ -224,6 +226,8 @@ A C++17 HTTP server inspired by basic `webserv`/Nginx-like behavior.
   - Keep-alive behavior
 - Design doc: `design/webserv-cpp17/v0.3.0-http11-core.md`.
 
+- **Status:** 구현 완료.
+
 ---
 
 ### v0.4.0 – Dynamic responses (CGI or handler routing)
@@ -335,6 +339,8 @@ An Inception-style infrastructure stack, tuned for a typical Korean web service 
 
 - Design doc: `design/infra-inception/v0.3.0-kor-tuning.md`.
 - Config files documented with Korean comments.
+
+- **Status:** 구현 완료.
 
 ---
 

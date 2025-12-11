@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(minishell-cpp17 VERSION 0.2.0 LANGUAGES CXX)
+project(minishell-cpp17 VERSION 0.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,4 +25,12 @@ add_test(
 add_test(
     NAME MinishellExitBuiltinStatus
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/builtin_exit_status.sh $<TARGET_FILE:minishell>
+)
+add_test(
+    NAME MinishellPipelineBasic
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/pipeline_basic.sh $<TARGET_FILE:minishell>
+)
+add_test(
+    NAME MinishellRedirectionBasic
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/redirection_basic.sh $<TARGET_FILE:minishell>
 )
