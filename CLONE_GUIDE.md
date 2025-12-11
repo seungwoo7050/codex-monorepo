@@ -53,3 +53,20 @@
   docker compose down
   ```
 - 구성: app(db/redis 의존), db(MariaDB), redis, nginx(8080 포트 프록시) 서비스를 포함한다. 모든 서비스는 `TZ=Asia/Seoul` 환경을 사용하며 DB는 `utf8mb4` 설정, Nginx는 gzip/시간 로그 포맷으로 튜닝되어 있다. 정적 파일은 `services/nginx/static/`에서 제공되며, Prometheus(9090)와 Grafana(3000) 모니터링 스택이 추가되었다.
+
+## philosophers-cpp17
+- 설명: 고전 식사하는 철학자 문제를 C++17 스레드/뮤텍스로 구현한 학습용 데모이다. v0.1.0에서는 좌측→우측 순서로 포크를 집는 단순 전략으로 교착 징후를 관찰한다.
+- 빌드
+  ```bash
+  cmake -S philosophers-cpp17 -B philosophers-cpp17/build
+  cmake --build philosophers-cpp17/build
+  ```
+- 실행 예시
+  ```bash
+  ./philosophers-cpp17/build/philosophers --duration-ms 2200 --lock-timeout-ms 1000 --stuck-threshold-ms 900
+  ```
+  위 기본값은 첫 번째 사이클에서 교착 징후 안내 메시지가 출력되도록 맞추어져 있다.
+- 테스트
+  ```bash
+  ctest --test-dir philosophers-cpp17/build --output-on-failure
+  ```
