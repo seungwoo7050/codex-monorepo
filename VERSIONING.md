@@ -84,6 +84,7 @@ A C++17-based reimplementation of a minimal POSIX-style shell.
 - Korean comments updated with version tags and design doc links.
 - Design doc: `design/minishell-cpp17/v0.2.0-env-and-builtins.md`.
 - `CLONE_GUIDE.md` updated if usage changes.
+- **Status:** 구현 완료.
 
 ---
 
@@ -200,6 +201,7 @@ A C++17 HTTP server inspired by basic `webserv`/Nginx-like behavior.
   - Connection timeout behavior.
 - Design doc: `design/webserv-cpp17/v0.2.0-multi-connection-loop.md`.
 - `CLONE_GUIDE.md` updated if run options/configs change.
+- **Status:** 구현 완료.
 
 ---
 
@@ -309,6 +311,7 @@ An Inception-style infrastructure stack, tuned for a typical Korean web service 
 
 - Design doc: `design/infra-inception/v0.2.0-nginx-redis-stack.md`.
 - `CLONE_GUIDE.md` updated for new services and ports.
+- **Status:** 구현 완료.
 
 ---
 

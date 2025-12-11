@@ -8,11 +8,14 @@ services:
       - "8085:8085"
     depends_on:
       - db
+      - redis
     environment:
       - DB_HOST=db
       - DB_USER=demo
       - DB_PASSWORD=demo_pass
       - DB_NAME=demo_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     # 단순 데모용 앱 컨테이너로, DB 연결 설정만 환경 변수로 전달한다.
 
   db:
@@ -29,3 +32,27 @@ services:
     ports:
       - "3307:3306"
     # 기본 스키마 초기화를 위해 init.sql을 마운트한다.
+
+  redis:
+    image: redis:7-alpine
+    container_name: infra_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # 캐시 및 세션 저장소용 Redis 컨테이너를 추가한다.
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: infra_nginx
+    depends_on:
+      - app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./services/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./services/nginx/static:/usr/share/nginx/html:ro
+    # 프런트엔드 엔드포인트로 동작하며 app 컨테이너로 프록시한다.
+
+volumes:
+  redis_data:

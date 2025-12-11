@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# webserv-cpp17 v0.1.0 테스트: 단일 요청 처리 후 종료 여부를 검증한다.
+# webserv-cpp17 v0.2.0 테스트: 단일 요청 처리 후 종료 여부를 검증한다.
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -9,8 +9,9 @@ fi
 
 binary="$1"
 port=9090
+max_requests=1
 
-"$binary" "$port" &
+"$binary" "$port" "$max_requests" &
 server_pid=$!
 
 cleanup() {
@@ -25,7 +26,7 @@ sleep 0.2
 
 response=$(curl -s --max-time 5 "http://127.0.0.1:${port}")
 
-if ! grep -q "Hello from webserv v0.1.0" <<<"$response"; then
+if ! grep -q "Hello from webserv v0.2.0" <<<"$response"; then
   echo "응답 본문이 예상과 다릅니다." >&2
   echo "$response" >&2
   exit 1

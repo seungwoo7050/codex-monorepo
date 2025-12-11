@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# minishell-cpp17 v0.1.0 테스트: echo 명령이 실행되고 종료 코드가 표시되는지 확인한다.
+# minishell-cpp17 v0.2.0 테스트: echo 명령이 실행되고 종료 코드가 표시되는지 확인한다.
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -26,4 +26,4 @@ if ! grep -q "exit status: 0" "$tmp_output"; then
   exit 1
 fi
 
-echo "minishell v0.1.0 echo 테스트 통과"
+echo "minishell v0.2.0 echo 테스트 통과"

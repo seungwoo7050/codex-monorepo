@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(webserv-cpp17 VERSION 0.1.0 LANGUAGES CXX)
+project(webserv-cpp17 VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,4 +13,8 @@ enable_testing()
 add_test(
     NAME WebservRespondsOnce
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_webserv.sh $<TARGET_FILE:webserv>
+)
+add_test(
+    NAME WebservMultiConnections
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_webserv_multi.sh $<TARGET_FILE:webserv>
 )
