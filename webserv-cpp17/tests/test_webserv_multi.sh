@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# webserv-cpp17 v0.3.0 테스트: 다중 요청 처리와 타임아웃 동작을 검증한다.
+# webserv-cpp17 v0.4.0 테스트: 다중 요청 처리와 타임아웃 동작을 검증한다.
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -46,13 +46,13 @@ PY
 
 wait
 
-if ! grep -q "Hello from webserv v0.3.0" "$resp1"; then
+if ! grep -q "Hello from webserv v0.4.0" "$resp1"; then
   echo "첫 번째 응답 본문이 예상과 다릅니다." >&2
   cat "$resp1" >&2
   exit 1
 fi
 
-if ! grep -q "Hello from webserv v0.3.0" "$resp2"; then
+if ! grep -q "Hello from webserv v0.4.0" "$resp2"; then
   echo "두 번째 응답 본문이 예상과 다릅니다." >&2
   cat "$resp2" >&2
   exit 1
@@ -64,4 +64,4 @@ if kill -0 "$server_pid" 2>/dev/null; then
   exit 1
 fi
 
-echo "webserv v0.3.0 다중 연결/타임아웃 테스트 통과"
+echo "webserv v0.4.0 다중 연결/타임아웃 테스트 통과"

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(minishell-cpp17 VERSION 0.3.0 LANGUAGES CXX)
+project(minishell-cpp17 VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,4 +33,12 @@ add_test(
 add_test(
     NAME MinishellRedirectionBasic
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/redirection_basic.sh $<TARGET_FILE:minishell>
+)
+add_test(
+    NAME MinishellSignalInterrupt
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/signal_interrupt.sh $<TARGET_FILE:minishell>
+)
+add_test(
+    NAME MinishellEofExit
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/eof_exit.sh $<TARGET_FILE:minishell>
 )

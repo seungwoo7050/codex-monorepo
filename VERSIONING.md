@@ -134,6 +134,7 @@ A C++17-based reimplementation of a minimal POSIX-style shell.
 - Tests for signal behavior and error conditions.
 - Design doc: `design/minishell-cpp17/v0.4.0-signals-and-errors.md`.
 - `CLONE_GUIDE.md` updated if any run instructions change.
+- **Status:** 구현 완료.
 
 ---
 
@@ -248,6 +249,7 @@ A C++17 HTTP server inspired by basic `webserv`/Nginx-like behavior.
 - Tests for dynamic endpoints.
 - Design doc: `design/webserv-cpp17/v0.4.0-dynamic-handlers.md`.
 - Example configuration included under `webserv-cpp17/configs/`.
+- **Status:** 구현 완료.
 
 ---
 
@@ -359,6 +361,7 @@ An Inception-style infrastructure stack, tuned for a typical Korean web service 
 
 - Design doc: `design/infra-inception/v0.4.0-monitoring-stack.md`.
 - `CLONE_GUIDE.md` updated with monitoring usage instructions.
+- **Status:** 구현 완료.
 
 ---
 

@@ -61,5 +61,32 @@ services:
       - ./services/nginx/static:/usr/share/nginx/html:ro
     # 프런트엔드 엔드포인트로 동작하며 app 컨테이너로 프록시한다.
 
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: infra_prometheus
+    depends_on:
+      - nginx
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./services/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    # nginx, app 지표를 스크랩하는 최소 설정을 포함한다.
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: infra_grafana
+    depends_on:
+      - prometheus
+    environment:
+      - TZ=Asia/Seoul
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    # 기본 관리자 계정을 지정하고 Prometheus 데이터 소스를 수동 추가할 수 있도록 한다.
+
 volumes:
   redis_data:
+  grafana_data:

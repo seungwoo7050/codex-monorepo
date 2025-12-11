@@ -57,4 +57,19 @@ if ! grep -q "log_format timed" services/nginx/nginx.conf; then
   exit 1
 fi
 
-echo "infra-inception v0.3.0 구성 테스트 통과"
+if ! grep -q "prometheus:" docker-compose.yml; then
+  echo "prometheus 서비스 정의가 없습니다." >&2
+  exit 1
+fi
+
+if ! grep -q "grafana:" docker-compose.yml; then
+  echo "grafana 서비스 정의가 없습니다." >&2
+  exit 1
+fi
+
+if [ ! -f services/monitoring/prometheus.yml ]; then
+  echo "Prometheus 설정 파일이 없습니다." >&2
+  exit 1
+fi
+
+echo "infra-inception v0.4.0 구성 테스트 통과"

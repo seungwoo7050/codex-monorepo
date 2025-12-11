@@ -19,7 +19,7 @@
   ```bash
   ctest --test-dir minishell-cpp17/build
   ```
-- 주요 옵션: 단일 입력 라인 기반으로 환경 변수 확장, cd/exit/env 빌트인, 파이프(`|`)와 리다이렉션(`<`, `>`, `>>`)을 지원한다.
+- 주요 옵션: 인터랙티브 루프에서 환경 변수 확장, cd/exit/env 빌트인, 파이프(`|`)와 리다이렉션(`<`, `>`, `>>`)을 지원한다. Ctrl+C로 현재 작업을 중단하고 Ctrl+D(EOF)로 종료할 수 있다.
 
 ## webserv-cpp17
 - 빌드
@@ -35,7 +35,7 @@
   ```bash
   ./webserv-cpp17/build/webserv 8080 3
   ```
-- select 기반 이벤트 루프를 사용하며, Host 헤더 검증과 keep-alive를 지원한다. 타임아웃은 약 1.5초로 설정되어 있다.
+- select 기반 이벤트 루프를 사용하며, Host 헤더 검증과 keep-alive를 지원한다. 타임아웃은 약 1.5초로 설정되어 있고, `/health`, `/metrics` 동적 엔드포인트를 기본 제공한다.
 
 ## infra-inception
 - 요구사항: Docker, Docker Compose
@@ -49,4 +49,4 @@
   cd infra-inception
   docker compose down
   ```
-- 구성: app(db/redis 의존), db(MariaDB), redis, nginx(8080 포트 프록시) 서비스를 포함한다. 모든 서비스는 `TZ=Asia/Seoul` 환경을 사용하며 DB는 `utf8mb4` 설정, Nginx는 gzip/시간 로그 포맷으로 튜닝되어 있다. 정적 파일은 `services/nginx/static/`에서 제공된다.
+- 구성: app(db/redis 의존), db(MariaDB), redis, nginx(8080 포트 프록시) 서비스를 포함한다. 모든 서비스는 `TZ=Asia/Seoul` 환경을 사용하며 DB는 `utf8mb4` 설정, Nginx는 gzip/시간 로그 포맷으로 튜닝되어 있다. 정적 파일은 `services/nginx/static/`에서 제공되며, Prometheus(9090)와 Grafana(3000) 모니터링 스택이 추가되었다.
