@@ -305,6 +305,7 @@ A C++17-based concurrency lab focusing on the classic dining philosophers proble
   - Why deadlock can occur in this setup.
 - Design doc: `design/philosophers-cpp17/v0.1.0-naive-deadlock.md` (Korean).
 - `CLONE_GUIDE.md` contains build/run instructions for `philosophers-cpp17`.
+- **Status:** 구현 완료.
 
 ---
 
